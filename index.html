@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expense Splitter</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:wght@700&display=swap" rel="stylesheet">
+   
+</head>
+<body>
+    <!-- Video background -->
+    <video autoplay loop muted id="background-video">
+        <source src="backk.mp4" type="video/mp4">
+       
+    </video>
+
+    <div class="container">
+        <header>
+            <h1>Expense Splitter</h1>
+            <div id="trip-name"></div>
+        </header>
+        <main>
+            <section id="trip-name-section">
+                <h2>Set Trip Name</h2>
+                <div class="form-group">
+                    <input type="text" id="trip-name-input" placeholder="Enter trip name">
+                    <button id="set-trip-name">Set Trip Name</button>
+                </div>
+            </section>
+            <section id="add-member-section">
+                <h2>Add Members</h2>
+                <div class="form-group">
+                    <input type="text" id="member-name" placeholder="Enter member name">
+                    <button id="add-member">Add Member</button>
+                </div>
+                <ul id="members-list"></ul>
+            </section>
+            <section>
+                <h2>Add Expense</h2>
+                <div class="form-group">
+                    <input type="text" id="expense-description" placeholder="Expense description">
+                </div>
+                <div class="form-group">
+                    <input type="number" id="expense-amount" placeholder="Expense amount">
+                </div>
+                <div class="form-group">
+                    <select id="payer-select">
+                        <option value="" disabled selected>Select payer</option>
+                    </select>
+                </div>
+                <button id="add-expense">Add Expense</button>
+
+                <!-- Total expenses spent by all members -->
+                <div id="total-expenses">Total Expenses: Rs.0.00</div>
+            </section>
+            <section>
+                <h2>Settle Balances</h2>
+                <button id="settle-balances">Calculate Settlement</button>
+                <ul id="settlement-list"></ul>
+            </section>
+            
+        </main>
+        <footer>
+            <p>Created with <span style="color: rgb(0, 255, 89);">&#10084;&#65039;</span> by Prasenjeet Singh</p>
+        </footer>
+    </div>
+    
+    <script>
+        const members = [];
+        const balances = {};
+        let totalExpenses = 0;
+
+        document.getElementById('set-trip-name').addEventListener('click', () => {
+            const tripNameInput = document.getElementById('trip-name-input').value.trim();
+            const tripNameDisplay = document.getElementById('trip-name');
+            const tripNameSection = document.getElementById('trip-name-section');
+            const addMemberSection = document.getElementById('add-member-section');
+            if (tripNameInput) {
+                tripNameDisplay.textContent = `Trip: ${tripNameInput}`;
+                tripNameSection.style.display = 'none';
+                addMemberSection.style.display = 'block';
+            } else {
+                alert('Please enter a trip name!');
+            }
+        });
+
+        document.getElementById('trip-name-input').addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                document.getElementById('set-trip-name').click();
+            }
+        });
+
+        document.getElementById('add-member').addEventListener('click', () => {
+            addMember();
+        });
+
+        document.getElementById('member-name').addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                addMember();
+            }
+        });
+
+        function addMember() {
+            const memberName = document.getElementById('member-name').value.trim();
+            if (memberName && !members.includes(memberName)) {
+                members.push(memberName);
+                balances[memberName] = 0;
+                updateMembersList();
+                updatePayerSelect();
+                document.getElementById('member-name').value = '';
+            } else {
+                alert('Member name is empty or already exists!');
+            }
+        }
+
+        function updateMembersList() {
+            const membersList = document.getElementById('members-list');
+            membersList.innerHTML = members
+                .map(member => `
+                    <li>
+                        <span>${member}</span>
+                        <button onclick="removeMember('${member}')">×</button>
+                    </li>`)
+                .join('');
+        }
+
+        function removeMember(member) {
+            const index = members.indexOf(member);
+            if (index > -1) {
+                members.splice(index, 1);
+                delete balances[member];
+                updateMembersList();
+                updatePayerSelect();
+            }
+        }
+
+        function updatePayerSelect() {
+            const payerSelect = document.getElementById('payer-select');
+            payerSelect.innerHTML = members.map(member => `<option value="${member}">${member}</option>`).join('');
+        }
+
+        document.getElementById('add-expense').addEventListener('click', () => {
+            const description = document.getElementById('expense-description').value.trim();
+            const amount = parseFloat(document.getElementById('expense-amount').value);
+            const payer = document.getElementById('payer-select').value;
+
+            if (description && amount > 0 && payer) {
+                const splitAmount = amount / members.length;
+                members.forEach(member => {
+                    balances[member] -= splitAmount;
+                });
+                balances[payer] += amount;
+
+                // Update total expenses
+                totalExpenses += amount;
+                updateTotalExpenses();
+
+                document.getElementById('expense-description').value = '';
+                document.getElementById('expense-amount').value = '';
+            } else {
+                alert('Invalid expense details!');
+            }
+        });
+
+        // Function to update the total expenses
+        function updateTotalExpenses() {
+            document.getElementById('total-expenses').textContent = `Total Expenses: Rs.${totalExpenses.toFixed(2)}`;
+        }
+
+        document.getElementById('settle-balances').addEventListener('click', () => {
+            const settlementList = document.getElementById('settlement-list');
+            const settlements = calculateSettlements();
+
+            if (settlements.length > 0) {
+                settlementList.innerHTML = settlements
+                    .map(settlement => `<li>${settlement}</li>`)
+                    .join('');
+            } else {
+                settlementList.innerHTML = '<li>No settlements required</li>';
+            }
+        });
+
+        function calculateSettlements() {
+            const debts = [];
+            const credits = [];
+
+            for (const [member, balance] of Object.entries(balances)) {
+                if (balance < 0) {
+                    debts.push({ member, amount: -balance });
+                } else if (balance > 0) {
+                    credits.push({ member, amount: balance });
+                }
+            }
+
+            const settlements = [];
+            while (debts.length > 0 && credits.length > 0) {
+                const debtor = debts[0];
+                const creditor = credits[0];
+
+                const settlementAmount = Math.min(debtor.amount, creditor.amount);
+                settlements.push(`${debtor.member} pays ${creditor.member} Rs.${settlementAmount.toFixed(2)}`);
+
+                debtor.amount -= settlementAmount;
+                creditor.amount -= settlementAmount;
+
+                if (debtor.amount === 0) debts.shift();
+                if (creditor.amount === 0) credits.shift();
+            }
+
+            return settlements;
+        }
+    </script>
+</body>
+</html>
